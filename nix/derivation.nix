@@ -6,6 +6,9 @@ let
         "/src/hash.rs"
         "/src/store.rs"
         "/src/main.rs"
+        "/src/lib.rs"
+        "/tests"
+        "/tests/tests.rs"
         "/Cargo.toml"
         "/Cargo.lock"
     ];

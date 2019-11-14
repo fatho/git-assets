@@ -1,12 +1,11 @@
 use std::env;
 use std::io::{self};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 use structopt::StructOpt;
 
-mod hash;
-mod store;
-use store::{Store, StoreFileRef};
+use git_assets;
+use git_assets::store;
 
 #[derive(StructOpt)]
 #[structopt(about = "binary asset handling for git")]
@@ -29,14 +28,8 @@ fn default_store() -> io::Result<PathBuf> {
 
 fn main() {
     let opts = GitAssets::from_args();
-    let store_path = opts.store.unwrap_or_else(|| default_store().unwrap());
 
-    let result = match opts.command {
-        Command::Clean => clean(store_path),
-        Command::Smudge => smudge(store_path),
-    };
-
-    match result {
+    match run(opts) {
         Err(err) => {
             eprintln!("{}", err);
             std::process::exit(1)
@@ -45,9 +38,18 @@ fn main() {
     }
 }
 
+fn run(opts: GitAssets) -> io::Result<()> {
+    let store_path = opts.store.unwrap_or_else(|| default_store().unwrap());
+
+    match opts.command {
+        Command::Clean => clean(store_path),
+        Command::Smudge => smudge(store_path),
+    }
+}
+
 /// Store a file from the working directory in the store
 fn clean(store_path: PathBuf) -> io::Result<()> {
-    let store = Store::open_or_create(store_path)?;
+    let store = store::Store::open_or_create(store_path)?;
 
     // Copy stdin (where git provides the file contents) to a temporary file,
     // which also computes the hash while writing.
@@ -65,9 +67,9 @@ fn clean(store_path: PathBuf) -> io::Result<()> {
 /// Read a file from the store and put it in the working directory.
 fn smudge(store_path: PathBuf) -> io::Result<()> {
     // Parse the reference to the actual file
-    let store_ref = StoreFileRef::parse_from_stream(&mut io::stdin().lock())?;
+    let store_ref = store::StoreFileRef::parse_from_stream(&mut io::stdin().lock())?;
     // And dereference it using the given store
-    let store = Store::open_or_create(store_path)?;
+    let store = store::Store::open_or_create(store_path)?;
     let mut file = store.open_ref(&store_ref)?;
     io::copy(&mut file, &mut io::stdout().lock())?;
 

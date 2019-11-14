@@ -8,3 +8,7 @@ edition = "2018"
 structopt = "0.3.4"
 sha2 = "0.8.0"
 hex = "0.4.0"
+
+[[test]]
+name = "integration"
+path = "tests/tests.rs"

@@ -34,8 +34,19 @@ impl Sha256Hash {
         }
     }
 
+    pub fn to_hex_string(&self) -> String {
+        format!("{}", self)
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    /// Compute the SHA-256 hash of a byte array.
+    pub fn hash_bytes(bytes: &[u8]) -> Sha256Hash {
+        let mut hasher = sha2::Sha256::new();
+        hasher.input(bytes);
+        Sha256Hash::from_bytes(&hasher.result()).expect("SHA-256 is broken")
     }
 }
 
@@ -61,7 +72,7 @@ mod test {
     use sha2::{Digest, Sha256};
 
     #[test]
-    fn test_sha256hash() {
+    fn sha256hash() {
         let mut hasher = Sha256::new();
         hasher.input(b"foo");
         // check that conversion works
@@ -76,7 +87,7 @@ mod test {
     }
 
     #[test]
-    fn test_sha256hash_hex_roundtrip() {
+    fn sha256hash_hex_roundtrip() {
         let hash: Sha256Hash = Sha256Hash::from_hex(
             b"2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
         )

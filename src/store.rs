@@ -164,18 +164,25 @@ fn new_temp_file(dir: &Path, base_name: &str, suffix: &str) -> io::Result<(PathB
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::StoreFileRef;
     use crate::hash::Sha256Hash;
 
     #[test]
-    fn test_store_file_ref_roundtrip() {
-        let r = StoreFileRef::from_hash(Sha256Hash::from_hex(b"2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae").unwrap());
+    fn store_file_ref_roundtrip() {
+        let r = StoreFileRef::from_hash(
+            Sha256Hash::from_hex(
+                b"2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+            )
+            .unwrap(),
+        );
 
         let serialized = r.to_string();
-        assert_eq!(serialized, "git-assets v1\n2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae");
+        assert_eq!(
+            serialized,
+            "git-assets v1\n2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+        );
 
         let r2 = StoreFileRef::parse_from_stream(&mut std::io::Cursor::new(serialized)).unwrap();
         assert_eq!(r2, r);

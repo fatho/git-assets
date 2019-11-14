@@ -45,4 +45,9 @@ Any `.xcf` files that are staged or committed are stored in `.git/x-assets/`, an
 
   It is probably possible to corrupt the repository when the wrong actions are taken, e.g. adding the filter retroactively for files that were already committed, or removing the filter for files stored in the asset store.
 
-  There should also be integration tests that invoke `git-annex` indirectly via git only.
+  There should also be integration tests that invoke `git-assets` indirectly via git only.
+
+- **Improve error reporting**
+
+  If referenced files are not present in the store (because they are in some other location and have been deleted locally),
+  `git-assets` prints a somewhat incomprehensible error message. Those should be more user-friendly.

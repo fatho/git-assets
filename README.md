@@ -14,8 +14,8 @@ Use it in a git repository by adding this entry to `.git/config` (assuming that 
 
 ```
 [filter "assets"]
-	clean = git-assets store
-	smudge = git-assets retrieve
+	clean = git-assets store-file
+	smudge = git-assets retrieve-file
 	required
 ```
 

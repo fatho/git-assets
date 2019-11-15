@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 
-use git_assets;
+use git_assets_lib;
 
 const TEST_CONTENTS: &[u8] = b"this is a test\nand a second line";
 const TEST_CONTENTS_REF: &[u8] =
@@ -15,7 +15,7 @@ const TEST_CONTENTS_REF: &[u8] =
 #[test]
 fn test_store() {
     run_test("store", |env| {
-        let mut bin = env.run_test_command(&["store"]);
+        let mut bin = env.run_test_command(&["store-file"]);
         bin.stdin_send(TEST_CONTENTS);
 
         // Ensure program output is correct
@@ -33,8 +33,8 @@ fn test_store() {
 #[test]
 fn test_store_double() {
     run_test("store_double", |env| {
-        let mut bin1 = env.run_test_command(&["store"]);
-        let mut bin2 = env.run_test_command(&["store"]);
+        let mut bin1 = env.run_test_command(&["store-file"]);
+        let mut bin2 = env.run_test_command(&["store-file"]);
 
         bin1.stdin_send(TEST_CONTENTS);
         bin2.stdin_send(TEST_CONTENTS);
@@ -60,7 +60,7 @@ fn test_store_double() {
 fn test_store_retrieve() {
     run_test("store_retrieve", |env| {
         {
-            let mut bin = env.run_test_command(&["store"]);
+            let mut bin = env.run_test_command(&["store-file"]);
             bin.stdin_send(TEST_CONTENTS);
 
             // Ensure program output is correct
@@ -68,7 +68,7 @@ fn test_store_retrieve() {
         }
 
         {
-            let mut bin = env.run_test_command(&["retrieve"]);
+            let mut bin = env.run_test_command(&["retrieve-file"]);
             bin.stdin_send(TEST_CONTENTS_REF);
 
             // Ensure program output is correct
@@ -99,7 +99,7 @@ fn assert_data_count(env: &TestEnv, num_data_files: usize) {
 
 /// Assert that the given contents are stored in a data file with the corresponding hash as name.
 fn assert_data_contents(env: &TestEnv, contents: &[u8]) {
-    let hash = git_assets::hash::Sha256Hash::hash_bytes(contents);
+    let hash = git_assets_lib::hash::Sha256Hash::hash_bytes(contents);
     let actual = fs::read(env.store_dir.join("data").join(hash.to_hex_string())).unwrap();
     assert_eq!(actual.as_slice(), contents);
 }

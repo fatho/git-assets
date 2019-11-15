@@ -4,6 +4,14 @@ version = "0.1.0"
 authors = ["Fabian Thorand <f.thorand@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "git_assets_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "git-assets"
+path = "cli/main.rs"
+
 [dependencies]
 structopt = "0.3.4"
 sha2 = "0.8.0"

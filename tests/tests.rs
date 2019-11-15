@@ -1,11 +1,9 @@
 //! Tests for the command line interface of git-assets
 
 use std::fs;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::io::Write;
+use std::path::PathBuf;
 use std::process;
-
-use sha2::Digest;
 
 use git_assets;
 
@@ -13,11 +11,11 @@ const TEST_CONTENTS: &[u8] = b"this is a test\nand a second line";
 const TEST_CONTENTS_REF: &[u8] =
     b"git-assets v1\nfbbeac4b21cc086bfd7ed8b9c7b99e014e436b8bb0069114054ca374e8e69b26\n";
 
-/// Check that cleaning a file puts it into the correct place in the store.
+/// Check that storing a file puts it into the correct place in the store.
 #[test]
-fn test_clean() {
-    run_test("clean", |env| {
-        let mut bin = env.run_test_command(&["clean"]);
+fn test_store() {
+    run_test("store", |env| {
+        let mut bin = env.run_test_command(&["store"]);
         bin.stdin_send(TEST_CONTENTS);
 
         // Ensure program output is correct
@@ -27,15 +25,16 @@ fn test_clean() {
         assert_empty_staging(env);
         assert_data_count(env, 1);
         assert_data_contents(env, TEST_CONTENTS);
+        let _ = env.run_test_command(&["validate"]).expect_success();
     });
 }
 
-/// Check cleaning two files at about the same time.
+/// Check storing two files at about the same time.
 #[test]
-fn test_clean_double() {
-    run_test("clean_double", |env| {
-        let mut bin1 = env.run_test_command(&["clean"]);
-        let mut bin2 = env.run_test_command(&["clean"]);
+fn test_store_double() {
+    run_test("store_double", |env| {
+        let mut bin1 = env.run_test_command(&["store"]);
+        let mut bin2 = env.run_test_command(&["store"]);
 
         bin1.stdin_send(TEST_CONTENTS);
         bin2.stdin_send(TEST_CONTENTS);
@@ -52,15 +51,16 @@ fn test_clean_double() {
         assert_empty_staging(env);
         assert_data_count(env, 1);
         assert_data_contents(env, TEST_CONTENTS);
+        let _ = env.run_test_command(&["validate"]).expect_success();
     });
 }
 
-/// Check that a cleaned file can be smudged afterwards.
+/// Check that a stored file can be retrieved afterwards.
 #[test]
-fn test_clean_smudge() {
-    run_test("clean_smudge", |env| {
+fn test_store_retrieve() {
+    run_test("store_retrieve", |env| {
         {
-            let mut bin = env.run_test_command(&["clean"]);
+            let mut bin = env.run_test_command(&["store"]);
             bin.stdin_send(TEST_CONTENTS);
 
             // Ensure program output is correct
@@ -68,7 +68,7 @@ fn test_clean_smudge() {
         }
 
         {
-            let mut bin = env.run_test_command(&["smudge"]);
+            let mut bin = env.run_test_command(&["retrieve"]);
             bin.stdin_send(TEST_CONTENTS_REF);
 
             // Ensure program output is correct
@@ -79,6 +79,7 @@ fn test_clean_smudge() {
         assert_empty_staging(env);
         assert_data_count(env, 1);
         assert_data_contents(env, TEST_CONTENTS);
+        let _ = env.run_test_command(&["validate"]).expect_success();
     });
 }
 
@@ -104,11 +105,11 @@ fn assert_data_contents(env: &TestEnv, contents: &[u8]) {
 }
 
 /// Simple interface for interacting with the child via stdin/stdout
-struct TestChild {
+struct GitAssetsChild {
     child: process::Child,
 }
 
-impl TestChild {
+impl GitAssetsChild {
     /// Send input to the child's stdin. Panics if sending fails
     fn stdin_send(&mut self, input: &[u8]) {
         self.child
@@ -132,6 +133,10 @@ impl TestChild {
     /// Assert that the program returned successful and return its stdout.
     fn expect_success(self) -> Vec<u8> {
         let out = self.wait_output();
+        if !out.status.success() {
+            println!("{}", String::from_utf8_lossy(&out.stdout));
+            eprintln!("{}", String::from_utf8_lossy(&out.stderr));
+        }
         assert!(out.status.success());
         out.stdout
     }
@@ -152,7 +157,7 @@ impl TestEnv {
             .unwrap()
             .join("git-assets");
 
-        eprintln!("git-assets binary: {}", bin.to_string_lossy());
+        eprintln!("git-assets binary: {}", bin.display());
 
         let process_id = std::process::id();
         let store_dir = std::env::temp_dir().join(format!("git-assets.{}.{}", name, process_id));
@@ -160,7 +165,7 @@ impl TestEnv {
         if store_dir.exists() {
             panic!(
                 "Previous test didn't clean up temporary store path: {}",
-                store_dir.to_string_lossy()
+                store_dir.display()
             );
         }
 
@@ -178,13 +183,13 @@ impl TestEnv {
         cmd
     }
 
-    fn run_test_command(&self, args: &[&str]) -> TestChild {
+    fn run_test_command(&self, args: &[&str]) -> GitAssetsChild {
         let child = self
             .build_test_cmd()
             .args(args)
             .spawn()
             .expect("could not spawn child");
-        TestChild { child }
+        GitAssetsChild { child }
     }
 
     fn remove_store(&self) {
@@ -197,7 +202,7 @@ impl TestEnv {
 fn run_test<F: FnOnce(&TestEnv) -> () + std::panic::UnwindSafe>(name: &str, callback: F) {
     let env = TestEnv::new(name);
 
-    eprintln!("Test using store: {}", env.store_dir.to_string_lossy());
+    eprintln!("Test using store: {}", env.store_dir.display());
 
     callback(&env);
 

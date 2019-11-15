@@ -18,16 +18,30 @@ pub struct Store {
     ref_dir: PathBuf,
 }
 
+macro_rules! may_already_exist {
+    ($ioresult:expr) => {
+        match $ioresult {
+            Err(ioerr) => match ioerr.kind() {
+                io::ErrorKind::AlreadyExists => Ok(()),
+                _ => Err(ioerr),
+            },
+            Ok(()) => Ok(()),
+        }
+    };
+}
+
 impl Store {
+    /// Open or create the store. The store path itself may not yet exist,
+    /// but its parent must already be present.
     pub fn open_or_create(base_dir: PathBuf) -> io::Result<Store> {
         let data_dir = base_dir.join("data");
         let staging_dir = base_dir.join("staging");
         let ref_dir = base_dir.join("ref");
 
-        std::fs::create_dir_all(&base_dir)?;
-        std::fs::create_dir_all(&data_dir)?;
-        std::fs::create_dir_all(&staging_dir)?;
-        std::fs::create_dir_all(&ref_dir)?;
+        may_already_exist!(std::fs::create_dir(&base_dir))?;
+        may_already_exist!(std::fs::create_dir(&data_dir))?;
+        may_already_exist!(std::fs::create_dir(&staging_dir))?;
+        may_already_exist!(std::fs::create_dir(&ref_dir))?;
 
         Ok(Store {
             base_dir,
@@ -61,6 +75,68 @@ impl Store {
         let path = self.data_dir.join(format!("{}", store_ref.hash));
         File::open(path)
     }
+
+    /// Check all entries in the data store for consistency.
+    pub fn validate(&self) -> io::Result<ValidationReport> {
+        let mut report = ValidationReport::default();
+
+        for entry_or_error in self.data_dir.read_dir()? {
+            let entry = entry_or_error?;
+            if entry.file_type()?.is_dir() {
+                report.unexpected_files.push(entry.path());
+            } else {
+                let path = entry.path();
+                // try to extract the hash from the filename
+                if let Some(expected_hash) = path
+                    .file_name()
+                    .and_then(std::ffi::OsStr::to_str)
+                    .map(str::as_bytes)
+                    .and_then(Sha256Hash::from_hex)
+                {
+                    let mut file = File::open(&path)?;
+                    let actual_hash = Sha256Hash::hash_stream(&mut file)?;
+                    if actual_hash != expected_hash {
+                        report.hash_mismatches.push(HashMismatch {
+                            file_name: path,
+                            expected_hash,
+                            actual_hash,
+                        });
+                    }
+                } else {
+                    // if the filename doesn't look like a hash, the file doesn't belong here
+                    report.unexpected_files.push(path);
+                }
+            }
+        }
+
+        Ok(report)
+    }
+}
+
+/// Contains a report of running a validation on the data store.
+#[derive(Debug, Default)]
+pub struct ValidationReport {
+    pub hash_mismatches: Vec<HashMismatch>,
+    /// List of files that were found inside the store that don't belong there
+    pub unexpected_files: Vec<PathBuf>,
+}
+
+impl ValidationReport {
+    /// Return whether the data store is valid, i.e. it doesn't contain any faulty entries.
+    pub fn is_valid(&self) -> bool {
+        self.hash_mismatches.is_empty() && self.unexpected_files.is_empty()
+    }
+}
+
+/// The content hash didn't match the file name.
+#[derive(Debug)]
+pub struct HashMismatch {
+    /// Affected file in the store.
+    pub file_name: PathBuf,
+    /// Expected content hash based on the filename
+    pub expected_hash: Sha256Hash,
+    /// Actual content hash based on the contents
+    pub actual_hash: Sha256Hash,
 }
 
 /// A reference to a data file stored in the `Store`.

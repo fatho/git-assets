@@ -1,6 +1,7 @@
 //! A convenience wrapper around a byte array representing a SHA256 hash.
 
 use std::fmt;
+use std::io::Read;
 
 use sha2::{Digest, Sha256};
 
@@ -47,6 +48,20 @@ impl Sha256Hash {
         let mut hasher = sha2::Sha256::new();
         hasher.input(bytes);
         Sha256Hash::from_bytes(&hasher.result()).expect("SHA-256 is broken")
+    }
+
+    /// Compute the SHA-256 hash of an arbitrary stream.
+    pub fn hash_stream<R: Read>(reader: &mut R) -> std::io::Result<Sha256Hash> {
+        let mut buf = vec![0u8; 4096];
+        let mut hasher = sha2::Sha256::new();
+        loop {
+            let n_read = reader.read(&mut buf)?;
+            if n_read > 0 {
+                hasher.input(&buf[0..n_read]);
+            } else {
+                return Ok(hasher.into());
+            }
+        }
     }
 }
 

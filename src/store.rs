@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -7,6 +8,7 @@ use sha2::{Digest, Sha256};
 use crate::hash::Sha256Hash;
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct Store {
     /// Root directory of the store
     base_dir: PathBuf,
@@ -154,20 +156,6 @@ impl StoreFileRef {
         &self.hash
     }
 
-    /// Convert this reference to its string representation in this format:
-    ///
-    /// ```text
-    /// git-assets <format-version>
-    /// <file-sha256-hash>
-    /// ```
-    ///
-    /// where `<format-version>` is currently `v1` and will be increased when
-    /// the reference format changes, and <file-sha256-hash> is the sha 256
-    /// hash of the file contents that are pointed to by this reference.
-    pub fn to_string(&self) -> String {
-        format!("git-assets v1\n{}", self.hash)
-    }
-
     pub fn parse_from_stream<R: Read>(reader: &mut R) -> io::Result<StoreFileRef> {
         // The current format takes exactly 78 bytes:
         // - 10 bytes for the magic string "git-assets"
@@ -185,6 +173,22 @@ impl StoreFileRef {
         let hash = Sha256Hash::from_hex(&buf[14..]).ok_or(io::ErrorKind::InvalidData)?;
 
         Ok(Self { hash })
+    }
+}
+
+/// Convert this reference to its string representation in this format:
+///
+/// ```text
+/// git-assets <format-version>
+/// <file-sha256-hash>
+/// ```
+///
+/// where `<format-version>` is currently `v1` and will be increased when
+/// the reference format changes, and <file-sha256-hash> is the sha 256
+/// hash of the file contents that are pointed to by this reference.
+impl Display for StoreFileRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "git-assets v1\n{}", self.hash)
     }
 }
 
@@ -208,7 +212,7 @@ impl Write for StagingFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let n_written = self.file.write(buf)?;
         // Only hash the parts that we managed to write
-        self.hasher.input(&buf[0..n_written]);
+        self.hasher.update(&buf[0..n_written]);
 
         Ok(n_written)
     }

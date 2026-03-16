@@ -1,11 +1,9 @@
 use std::env;
-use std::error::Error;
 use std::io::{self};
 use std::path::PathBuf;
 
 use structopt::StructOpt;
 
-use git_assets_lib;
 use git_assets_lib::store;
 
 mod errors;
@@ -50,12 +48,9 @@ fn find_git_repo() -> io::Result<Option<PathBuf>> {
 fn main() {
     let opts = GitAssets::from_args();
 
-    match run(opts) {
-        Err(err) => {
-            eprintln!("{}", err);
-            std::process::exit(1)
-        }
-        Ok(()) => {}
+    if let Err(err) = run(opts) {
+        eprintln!("{}", err);
+        std::process::exit(1)
     }
 }
 
@@ -72,7 +67,6 @@ fn run(opts: GitAssets) -> CliResult<()> {
     }
 }
 
-
 /// Store a file from the working directory in the store
 fn store_file(store_path: PathBuf) -> CliResult<()> {
     let store = store::Store::open_or_create(store_path).map_err(CliError::store_access)?;
@@ -82,10 +76,12 @@ fn store_file(store_path: PathBuf) -> CliResult<()> {
     let mut staging_file = store.new_staging_file().map_err(CliError::store_access)?;
     io::copy(&mut io::stdin().lock(), &mut staging_file)?;
     // If writing was successful, we make the file permanent.
-    let store_ref = store.make_permanent(staging_file).map_err(CliError::store_access)?;
+    let store_ref = store
+        .make_permanent(staging_file)
+        .map_err(CliError::store_access)?;
 
     // Print reference to stdout so that we can fetch the contents back during retrieve
-    println!("{}", store_ref.to_string());
+    println!("{}", store_ref);
 
     Ok(())
 }
@@ -96,7 +92,9 @@ fn retrieve_file(store_path: PathBuf) -> CliResult<()> {
     let store_ref = store::StoreFileRef::parse_from_stream(&mut io::stdin().lock())?;
     // And dereference it using the given store
     let store = store::Store::open_or_create(store_path).map_err(CliError::store_access)?;
-    let mut file = store.open_ref(&store_ref).map_err(CliError::no_such_content)?;
+    let mut file = store
+        .open_ref(&store_ref)
+        .map_err(CliError::no_such_content)?;
     io::copy(&mut file, &mut io::stdout().lock())?;
 
     Ok(())

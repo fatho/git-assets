@@ -46,8 +46,8 @@ impl Sha256Hash {
     /// Compute the SHA-256 hash of a byte array.
     pub fn hash_bytes(bytes: &[u8]) -> Sha256Hash {
         let mut hasher = sha2::Sha256::new();
-        hasher.input(bytes);
-        Sha256Hash::from_bytes(&hasher.result()).expect("SHA-256 is broken")
+        hasher.update(bytes);
+        Sha256Hash::from_bytes(&hasher.finalize()).expect("SHA-256 is broken")
     }
 
     /// Compute the SHA-256 hash of an arbitrary stream.
@@ -57,7 +57,7 @@ impl Sha256Hash {
         loop {
             let n_read = reader.read(&mut buf)?;
             if n_read > 0 {
-                hasher.input(&buf[0..n_read]);
+                hasher.update(&buf[0..n_read]);
             } else {
                 return Ok(hasher.into());
             }
@@ -67,7 +67,7 @@ impl Sha256Hash {
 
 impl fmt::Display for Sha256Hash {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        let num_bytes = formatter.precision().unwrap_or(std::usize::MAX);
+        let num_bytes = formatter.precision().unwrap_or(usize::MAX);
         for b in self.as_bytes().iter().take(num_bytes) {
             write!(formatter, "{:02x}", b)?;
         }
@@ -77,7 +77,7 @@ impl fmt::Display for Sha256Hash {
 
 impl From<Sha256> for Sha256Hash {
     fn from(hasher: Sha256) -> Sha256Hash {
-        Sha256Hash::from_bytes(&hasher.result()).expect("SHA 256 is broken")
+        Sha256Hash::from_bytes(&hasher.finalize()).expect("SHA 256 is broken")
     }
 }
 
@@ -89,7 +89,7 @@ mod test {
     #[test]
     fn sha256hash() {
         let mut hasher = Sha256::new();
-        hasher.input(b"foo");
+        hasher.update(b"foo");
         // check that conversion works
         let hash: Sha256Hash = hasher.into();
 

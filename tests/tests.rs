@@ -5,8 +5,6 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 
-use git_assets_lib;
-
 const TEST_CONTENTS: &[u8] = b"this is a test\nand a second line";
 const TEST_CONTENTS_REF: &[u8] =
     b"git-assets v1\nfbbeac4b21cc086bfd7ed8b9c7b99e014e436b8bb0069114054ca374e8e69b26\n";
@@ -149,15 +147,11 @@ struct TestEnv {
 
 impl TestEnv {
     fn new(name: &str) -> TestEnv {
-        let bin = std::env::current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("git-assets");
+        let bin = std::env::var("CARGO_BIN_EXE_git-assets")
+            .expect("test should have access to cargo provided binary path");
 
-        eprintln!("git-assets binary: {}", bin.display());
+        eprintln!("git-assets binary: {}", bin);
+        let bin = PathBuf::from(bin);
 
         let process_id = std::process::id();
         let store_dir = std::env::temp_dir().join(format!("git-assets.{}.{}", name, process_id));
@@ -199,7 +193,7 @@ impl TestEnv {
 
 /// Generate a temporary store directory name and call the closure.
 /// This does not yet create the store directory.
-fn run_test<F: FnOnce(&TestEnv) -> () + std::panic::UnwindSafe>(name: &str, callback: F) {
+fn run_test<F: FnOnce(&TestEnv) + std::panic::UnwindSafe>(name: &str, callback: F) {
     let env = TestEnv::new(name);
 
     eprintln!("Test using store: {}", env.store_dir.display());

@@ -38,10 +38,10 @@ impl CliError {
         Self::with_source(CliErrorKind::NoSuchContent, Box::new(source))
     }
 
+    #[allow(unused)]
     pub fn kind(&self) -> CliErrorKind {
         self.kind
     }
-
 }
 
 impl fmt::Display for CliErrorKind {
@@ -77,10 +77,7 @@ impl Error for CliError {
 
 impl From<CliErrorKind> for CliError {
     fn from(kind: CliErrorKind) -> Self {
-        CliError {
-            kind,
-            source: None,
-        }
+        CliError { kind, source: None }
     }
 }
 
